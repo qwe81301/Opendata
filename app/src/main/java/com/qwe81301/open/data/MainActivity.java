@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.qwe81301.open.data.interfaceutil.OnSignDialog3ResultListener;
 import com.qwe81301.open.data.util.RecyclerViewNoBugLinearLayoutManager;
 
 import java.util.ArrayList;
@@ -35,8 +36,11 @@ public class MainActivity extends AppCompatActivity {
 
     private MyAdapter mAdapter;
 
+    private FeedbackDialog mFeedbackDialog;
 
-//    List<BikeRentDataBean> weekDateList = new ArrayList<>();
+    private TextView mFeedbackTextView;
+
+    private int mTotalShopCount;// 計算總站數
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,18 +48,20 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mOkHttpProxy = new OkHttpProxy(getApplicationContext(), this);
+        mFeedbackDialog = new FeedbackDialog(MainActivity.this, MainActivity.this);
+
+        mFeedbackTextView = findViewById(R.id.textView_feed_back);
+
 
         //RecyclerView的初始化
         mRecyclerView = findViewById(R.id.recyclerView_bike_record);
 
         setRecyclerView();
 
-        //請求政府 Open Data
+        //請求 Open Data
         requestOpenData();
 
-
     }
-
 
     private void setRecyclerView() {
 
@@ -70,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 請求政府 Open Data
+     * 請求 Open Data
      */
     private void requestOpenData() {
         service.submit(new Runnable() {//  一定要加這個才能跟伺服器連
@@ -96,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 //                responseStr = mOkHttpProxy.post("", "actRaw", "tokenRaw",
 //                        actDataTransferToApiJson, tokenRequestDataTransferToApiJson);
 
-                responseStr = mOkHttpProxy.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=20");
+                responseStr = mOkHttpProxy.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=1000");
 
                 //現在寫法Network is unstable(網路不穩)和Unpredictable error(不在預期的錯誤)都是以下情況
                 if ("Network is unstable".equals(responseStr)) {
@@ -114,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
 
                         Log.v("TEST", "responseStr:" + responseStr);
 
-                        //todo 如果資料不是每次都能順利拿到 到時候放放在 最下面 用死的資料
+                        //todo 如果資料不是每次都能順利拿到 到時候用放在 最下面 用固定的資料
                         Gson gson = new Gson();
 //                        BikeRentDataBean bikeRentDataBeanForList = gson.fromJson(responseDataStr, BikeRentDataBean.class);
                         List<BikeRentDataBean> bikeRentDataBeanForList = gson.fromJson(responseStr, new TypeToken<List<BikeRentDataBean>>() {
@@ -125,6 +131,8 @@ public class MainActivity extends AppCompatActivity {
 //                        字符串为为list
 //                        List<Person> persons =gson.fromJson(json, new TypeToken<List<Person>>() {}.getType());
 
+                        mTotalShopCount = 0;
+
                         for (int i = 0; i < bikeRentDataBeanForList.size(); i++) {
                             BikeRentDataBean bikeRentDataBean = new BikeRentDataBean();
                             bikeRentDataBean.setStop_id(bikeRentDataBeanForList.get(i).getStop_id());
@@ -133,9 +141,10 @@ public class MainActivity extends AppCompatActivity {
                             bikeRentDataBean.setSumSpace(bikeRentDataBeanForList.get(i).getSumSpace());
                             bikeRentDataBean.setVehicles(bikeRentDataBeanForList.get(i).getVehicles());
                             bikeRentDataBean.setParkingSpaces(bikeRentDataBeanForList.get(i).getParkingSpaces());
+
                             bikeRentDataList.add(bikeRentDataBean);
+                            mTotalShopCount++;
                         }
-                        Log.v("TEST", bikeRentDataList.toString());
 
                         mAdapter = new MyAdapter(
                                 bikeRentDataList
@@ -144,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
+                                mFeedbackTextView.setText("總站數："+mTotalShopCount);
                                 mRecyclerView.setAdapter(mAdapter);
                             }
                         });
@@ -177,11 +187,11 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //todo 使用RecyclerView(取代list View) 最主要放資料進列表的的部分
     class MyAdapter extends RecyclerView.Adapter<MyAdapter.ViewHolder> {
         private List<BikeRentDataBean> bikeRentItems;
 
-        public MyAdapter(List<BikeRentDataBean> bikeRentItems) {
-
+        private MyAdapter(List<BikeRentDataBean> bikeRentItems) {
             this.bikeRentItems = bikeRentItems;
         }
 
@@ -214,13 +224,14 @@ public class MainActivity extends AppCompatActivity {
             holder.mCanUseBikeNumberTextView.setText("可借：" + bikeRentItems.get(position).getVehicles());
             holder.mCanDropOffBikeNumberTextView.setText("可還：" + bikeRentItems.get(position).getParkingSpaces());
 
+            //todo(提示用) java  int 強制轉型 成 double
             double sumSpace = (double) bikeRentItems.get(position).getSumSpace();
             double vehicles = (double) bikeRentItems.get(position).getVehicles();
 
             //計算 比例
             double persentCalcurlate = (vehicles / sumSpace);
 
-            //1 ~ 0.4    0.4 ~ 0
+            //todo(提示用)  這邊我自訂一下 腳踏車站的車況稍微分成三類   (1 ~ 0.4)  (0.4 ~ 0)  (0)
             if (1 >= persentCalcurlate && persentCalcurlate > 0.4) {
                 holder.mStatusTextView.setText("車輛充足");
                 //todo(提示用)修改提示字背景
@@ -232,280 +243,28 @@ public class MainActivity extends AppCompatActivity {
                 holder.mStatusTextView.setText("無車可取");
                 holder.mStatusTextView.setBackground(ContextCompat.getDrawable(getApplicationContext(), R.drawable.red_border));
             }
-//
-//
-//            //合併 X月X日(週幾)
-//            String dateStr = mCurrentMonth + "月" + dayDateItems.get(position) + "日" + "(" + weekDateItems.get(position) + ")";
-//            holder.mDateTextView.setText(dateStr);
-//
-////            if (applyCountItems.get(position) > 0) {
-////                holder.mOvertimeSurveyClickAreaConstraintLayout.setVisibility(View.VISIBLE);
-////            } else {
-////                holder.mOvertimeSurveyClickAreaConstraintLayout.setVisibility(View.INVISIBLE);
-////            }
-//
-//
-//            if (!"".equals(toWorkStr0Items.get(position)) && toWorkStr0Items.get(position) != null) {
-//                holder.mToWorkStr0TextView.setText(toWorkStr0Items.get(position));
-//                holder.mToWorkStr0TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mToWorkStr0TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mToWorkStr0TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//            if (!"".equals(toWorkStr1Items.get(position)) && toWorkStr1Items.get(position) != null) {
-//                holder.mToWorkStr1TextView.setText(toWorkStr1Items.get(position));
-//                holder.mToWorkStr1TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mToWorkStr1TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mToWorkStr1TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//            if (!"".equals(toWorkStr2Items.get(position)) && toWorkStr2Items.get(position) != null) {
-//                holder.mToWorkStr2TextView.setText(toWorkStr2Items.get(position));
-//                holder.mToWorkStr2TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mToWorkStr2TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mToWorkStr2TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//
-//            if (!"".equals(offWorkStr0Items.get(position)) && offWorkStr0Items.get(position) != null) {
-//                holder.mOffWorkStr0TextView.setText(offWorkStr0Items.get(position));
-//                holder.mOffWorkStr0TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mOffWorkStr0TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mOffWorkStr0TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//            if (!"".equals(offWorkStr1Items.get(position)) && offWorkStr1Items.get(position) != null) {
-//                holder.mOffWorkStr1TextView.setText(offWorkStr1Items.get(position));
-//                holder.mOffWorkStr1TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mOffWorkStr1TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mOffWorkStr1TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//            if (!"".equals(offWorkStr2Items.get(position)) && offWorkStr2Items.get(position) != null) {
-//                holder.mOffWorkStr2TextView.setText(offWorkStr2Items.get(position));
-//                holder.mOffWorkStr2TextView.setVisibility(View.VISIBLE);
-//            } else {
-//                holder.mOffWorkStr2TextView.setText("00:00");//這邊沒有值的話 因為排版關係 還是給"00:00" 但是改成invisible 即可
-//                holder.mOffWorkStr2TextView.setVisibility(View.INVISIBLE);
-//            }
-//
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(twkindStr0Items.get(position))) {
-//                holder.mTwKindStr0TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mTwKindStr0TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(twkindStr1Items.get(position))) {
-//                holder.mTwKindStr1TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mTwKindStr1TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(twkindStr2Items.get(position))) {
-//                holder.mTwKindStr2TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mTwKindStr2TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//            holder.mTwKindStr0TextView.setText(twkindStr0Items.get(position));
-//            holder.mTwKindStr1TextView.setText(twkindStr1Items.get(position));
-//            holder.mTwKindStr2TextView.setText(twkindStr2Items.get(position));
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(owkindStr0Items.get(position))) {
-//                holder.mOwKindStr0TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mOwKindStr0TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(owkindStr1Items.get(position))) {
-//                holder.mOwKindStr1TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mOwKindStr1TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//
-//            //打卡正常為黑色 打卡異常為紅色
-//            if ("正常".equals(owkindStr2Items.get(position))) {
-//                holder.mOwKindStr2TextView.setTextColor(getResources().getColor(R.color.black));
-//            } else {
-//                holder.mOwKindStr2TextView.setTextColor(getResources().getColor(R.color.red));
-//            }
-//            holder.mOwKindStr0TextView.setText(owkindStr0Items.get(position));
-//            holder.mOwKindStr1TextView.setText(owkindStr1Items.get(position));
-//            holder.mOwKindStr2TextView.setText(owkindStr2Items.get(position));
-//
-//
-//            //otSurvey0,1,2 == 1 的時候 才顯示超時調查按鈕
-//            //先隱藏 mOvertimeSurvey0ImageView 和 mOvertimeSurvey0TextView
-//            holder.mOvertimeSurvey0ImageView.setVisibility(View.GONE);
-//            holder.mOvertimeSurvey0TextView.setVisibility(View.GONE);
-//            switch (otSurvey0Items.get(position)) {
-//                case 1:
-//                    holder.mOvertimeSurvey0ImageView.setVisibility(View.VISIBLE);
-//                    holder.mOvertimeSurvey0TextView.setVisibility(View.GONE);
-//                    break;
-//                case 2:
-//                    holder.mOvertimeSurvey0ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey0TextView.setText("　加班　");//比照最長的 "加班(代)" 所以後來調整　前後各加一個全型空白
-//                    holder.mOvertimeSurvey0TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey0TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 3:
-//                    holder.mOvertimeSurvey0ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey0TextView.setText("　私務　");
-//                    holder.mOvertimeSurvey0TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey0TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 4:
-//                    holder.mOvertimeSurvey0ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey0TextView.setText("加班(代)");
-//                    holder.mOvertimeSurvey0TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey0TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 5:
-//                    holder.mOvertimeSurvey0ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey0TextView.setText("私務(代)");
-//                    holder.mOvertimeSurvey0TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey0TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                default:
-//                    break;
-//            }
-//
-//            //先隱藏 mOvertimeSurvey1ImageView 和 mOvertimeSurvey1TextView
-//            holder.mOvertimeSurvey1ImageView.setVisibility(View.GONE);
-//            holder.mOvertimeSurvey1TextView.setVisibility(View.GONE);
-//            switch (otSurvey1Items.get(position)) {
-//                case 1:
-//                    holder.mOvertimeSurvey1ImageView.setVisibility(View.VISIBLE);
-//                    holder.mOvertimeSurvey1TextView.setVisibility(View.GONE);
-//                    break;
-//                case 2:
-//                    holder.mOvertimeSurvey1ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey1TextView.setText("　加班　");
-//                    holder.mOvertimeSurvey1TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey1TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 3:
-//                    holder.mOvertimeSurvey1ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey1TextView.setText("　私務　");
-//                    holder.mOvertimeSurvey1TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey1TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 4:
-//                    holder.mOvertimeSurvey1ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey1TextView.setText("加班(代)");
-//                    holder.mOvertimeSurvey1TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey1TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 5:
-//                    holder.mOvertimeSurvey1ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey1TextView.setText("私務(代)");
-//                    holder.mOvertimeSurvey1TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey1TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                default:
-//                    break;
-//            }
-//
-//            //先隱藏 mOvertimeSurvey2ImageView 和 mOvertimeSurvey2TextView
-//            holder.mOvertimeSurvey2ImageView.setVisibility(View.GONE);
-//            holder.mOvertimeSurvey2TextView.setVisibility(View.GONE);
-//            switch (otSurvey2Items.get(position)) {
-//                case 1:
-//                    holder.mOvertimeSurvey2ImageView.setVisibility(View.VISIBLE);
-//                    holder.mOvertimeSurvey2TextView.setVisibility(View.GONE);
-//                    break;
-//                case 2:
-//                    holder.mOvertimeSurvey2ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey2TextView.setText("　加班　");
-//                    holder.mOvertimeSurvey2TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey2TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 3:
-//                    holder.mOvertimeSurvey2ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey2TextView.setText("　私務　");
-//                    holder.mOvertimeSurvey2TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey2TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 4:
-//                    holder.mOvertimeSurvey2ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey2TextView.setText("加班(代)");
-//                    holder.mOvertimeSurvey2TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey2TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                case 5:
-//                    holder.mOvertimeSurvey2ImageView.setVisibility(View.GONE);
-//                    holder.mOvertimeSurvey2TextView.setText("私務(代)");
-//                    holder.mOvertimeSurvey2TextView.setTextColor(getResources().getColor(R.color.text_enabled_false_gray));
-//                    holder.mOvertimeSurvey2TextView.setVisibility(View.VISIBLE);
-//                    break;
-//                default:
-//                    break;
-//            }
-//
-//            //mPunchclockRecordClickAreaConstraintLayout 被點擊後觸發
-//            holder.mPunchclockRecordClickAreaConstraintLayout.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View v) {
-//
-//                    //彈出新增申請單選擇視窗  todo 到時候要連同方法拿掉
-////                    showSelectRequisitionAlertDialog();
-//
-//                    //顯示人員打卡記錄
-//                    showPunchclockRecord();
-//                }
-//            });
-//
-//
-//            //最多超時調查案小圖按鈕有三個
-//            holder.mOvertimeSurvey0ImageView.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View v) {
-//
-//                    //先組合好日期後再傳進去超時調查頁面
-//                    String dateStr = mCurrentYear + "/" + mCurrentMonth + "/" + dayDateItems.get(position) + "(" + weekDateItems.get(position) + ")";
-//
-//                    //顯示超時調查
-//                    showOvertimeSurvey(attNoItems.get(position), dateStr, 0);
-//
-//                    //todo 到時候 mWorkdayApplyListDialog.showDialog 這功能 要移到其他地方
-////                    mWorkdayApplyListDialog.showDialog(applyStatusItems.get(position));
-//                }
-//            });
-//
-//            holder.mOvertimeSurvey1ImageView.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View v) {
-//
-//                    //先組合好日期後再傳進去超時調查頁面
-//                    String dateStr = mCurrentYear + "/" + mCurrentMonth + "/" + dayDateItems.get(position) + "(" + weekDateItems.get(position) + ")";
-//
-//                    //顯示超時調查
-//                    showOvertimeSurvey(attNoItems.get(position), dateStr, 1);
-//                }
-//            });
-//
-//            holder.mOvertimeSurvey2ImageView.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View v) {
-//
-//                    //先組合好日期後再傳進去超時調查頁面
-//                    String dateStr = mCurrentYear + "/" + mCurrentMonth + "/" + dayDateItems.get(position) + "(" + weekDateItems.get(position) + ")";
-//
-//                    //顯示超時調查
-//                    showOvertimeSurvey(attNoItems.get(position), dateStr, 2);
-//                }
-//            });
+
+            holder.mItemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    //todo(提醒) 用 callback的寫法
+                    mFeedbackDialog.showDialog(new OnSignDialog3ResultListener() {
+                        @Override
+                        public void dialogPositiveResult(String note) {
+                            mFeedbackTextView.setText(note);
+                        }
+
+                        @Override
+                        public void dialogNegativeResult(String note) {
+                            mFeedbackTextView.setText(note);
+                        }
+
+                        @Override
+                        public void dialogNeutralResult() {
+                        }
+                    });
+                }
+            });
         }
 
         @Override
