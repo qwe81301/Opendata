@@ -34,7 +34,7 @@ import okhttp3.logging.HttpLoggingInterceptor;
  * version:
  * description:
  */
-public class OkHttpProxy {
+public class OkHttp {
 
     private String TAG = getClass().getSimpleName();
     private final OkHttpClient mOkHttpClient;
@@ -43,7 +43,7 @@ public class OkHttpProxy {
     private Context mContext;
     private Activity mActivity;
 
-    public OkHttpProxy(Context context, Activity activity) {
+    public OkHttp(Context context, Activity activity) {
 
         mContext = context;
         mActivity = activity;

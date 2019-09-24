@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final ExecutorService service = Executors.newSingleThreadExecutor();
 
-    private OkHttpProxy mOkHttpProxy;
+    private OkHttp mOkHttp;
     private String responseStr = "";
 
     private RecyclerView mRecyclerView;
@@ -47,11 +47,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mOkHttpProxy = new OkHttpProxy(getApplicationContext(), this);
+        mOkHttp = new OkHttp(getApplicationContext(), this);
         mFeedbackDialog = new FeedbackDialog(MainActivity.this, MainActivity.this);
 
         mFeedbackTextView = findViewById(R.id.textView_feed_back);
-
 
         //RecyclerView的初始化
         mRecyclerView = findViewById(R.id.recyclerView_bike_record);
@@ -79,10 +78,9 @@ public class MainActivity extends AppCompatActivity {
      * 請求 Open Data
      */
     private void requestOpenData() {
-        service.submit(new Runnable() {//  一定要加這個才能跟伺服器連
+        service.submit(new Runnable() {//todo(提醒)  新增一個 執行緒跑有關網路的連線 OkHttp
             @Override
             public void run() {
-
 //                ActDataBean actData = new ActDataBean();
 //                actData.setMethod("sendToSign");//Method:"1" = 將要發送的資料寫入排程
 //
@@ -99,69 +97,53 @@ public class MainActivity extends AppCompatActivity {
 //                String tokenRequestDataTransferToApiJson = gson.toJson(tokenRequestData);
 //                String normalDataTransferToApiJson = gson.toJson(FCMToNotificationSignerRequestData);
 
-//                responseStr = mOkHttpProxy.post("", "actRaw", "tokenRaw",
+//                responseStr = mOkHttp.post("", "actRaw", "tokenRaw",
 //                        actDataTransferToApiJson, tokenRequestDataTransferToApiJson);
+                //todo 使用網址 https://www.databar.com.tw/ListApi/ApiLink#%E8%87%AA%E8%A1%8C%E8%BB%8A%E7%A7%9F%E5%80%9F%E8%B3%87%E6%96%99
+                responseStr = mOkHttp.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=20");
 
-                responseStr = mOkHttpProxy.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=1000");
+                try {
+                    Log.v("TEST", "responseStr:" + responseStr);
 
-                //現在寫法Network is unstable(網路不穩)和Unpredictable error(不在預期的錯誤)都是以下情況
-                if ("Network is unstable".equals(responseStr)) {
-                    //網路不穩(關閉wifi 後 右打開 wifi 並迅速點擊打卡按鈕)
-//                    ToolsHelper.showSimplePromptDialog(mContext, getActivity(), "確認", "沒有網路", "請確認網路狀態");
+                    //todo 如果資料不是每次都能順利拿到 到時候用放在 最下面 用固定的資料
+                    Gson gson = new Gson();
 
-                    //無法預期的錯誤Unpredictable error 現在暫訂認定為 連線逾時造成連線失敗 伺服器無回應
-                } else if ("Connect timed out".equals(responseStr)
-                        || "Unpredictable error".equals(responseStr)) {
-                    //連線逾時造成連線失敗 伺服器無回應 (只開行動網路(沒用wifi) 點擊打卡按鈕)
-//                    ToolsHelper.showSimplePromptDialog(getContext(), getActivity(), "確認", "連線錯誤", "伺服器無回應");
+                    List<BikeRentDataBean> bikeRentDataBeanForList = gson.fromJson(responseStr, new TypeToken<List<BikeRentDataBean>>() {
+                    }.getType());
 
-                } else {
-                    try {
+                    ArrayList<BikeRentDataBean> bikeRentDataList = new ArrayList<>();
 
-                        Log.v("TEST", "responseStr:" + responseStr);
+                    mTotalShopCount = 0;
 
-                        //todo 如果資料不是每次都能順利拿到 到時候用放在 最下面 用固定的資料
-                        Gson gson = new Gson();
-//                        BikeRentDataBean bikeRentDataBeanForList = gson.fromJson(responseDataStr, BikeRentDataBean.class);
-                        List<BikeRentDataBean> bikeRentDataBeanForList = gson.fromJson(responseStr, new TypeToken<List<BikeRentDataBean>>() {
-                        }.getType());
+                    for (int i = 0; i < bikeRentDataBeanForList.size(); i++) {
+                        BikeRentDataBean bikeRentDataBean = new BikeRentDataBean();
+                        bikeRentDataBean.setStop_id(bikeRentDataBeanForList.get(i).getStop_id());
+                        bikeRentDataBean.setName(bikeRentDataBeanForList.get(i).getName());
 
-                        ArrayList<BikeRentDataBean> bikeRentDataList = new ArrayList<>();
-//
-//                        字符串为为list
-//                        List<Person> persons =gson.fromJson(json, new TypeToken<List<Person>>() {}.getType());
+                        bikeRentDataBean.setSumSpace(bikeRentDataBeanForList.get(i).getSumSpace());
+                        bikeRentDataBean.setVehicles(bikeRentDataBeanForList.get(i).getVehicles());
+                        bikeRentDataBean.setParkingSpaces(bikeRentDataBeanForList.get(i).getParkingSpaces());
 
-                        mTotalShopCount = 0;
-
-                        for (int i = 0; i < bikeRentDataBeanForList.size(); i++) {
-                            BikeRentDataBean bikeRentDataBean = new BikeRentDataBean();
-                            bikeRentDataBean.setStop_id(bikeRentDataBeanForList.get(i).getStop_id());
-                            bikeRentDataBean.setName(bikeRentDataBeanForList.get(i).getName());
-
-                            bikeRentDataBean.setSumSpace(bikeRentDataBeanForList.get(i).getSumSpace());
-                            bikeRentDataBean.setVehicles(bikeRentDataBeanForList.get(i).getVehicles());
-                            bikeRentDataBean.setParkingSpaces(bikeRentDataBeanForList.get(i).getParkingSpaces());
-
-                            bikeRentDataList.add(bikeRentDataBean);
-                            mTotalShopCount++;
-                        }
-
-                        mAdapter = new MyAdapter(
-                                bikeRentDataList
-                        );
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                mFeedbackTextView.setText("總站數："+mTotalShopCount);
-                                mRecyclerView.setAdapter(mAdapter);
-                            }
-                        });
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                        bikeRentDataList.add(bikeRentDataBean);
+                        mTotalShopCount++;
                     }
+
+                    mAdapter = new MyAdapter(
+                            bikeRentDataList
+                    );
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mFeedbackTextView.setText("總站數：" + mTotalShopCount);
+                            mRecyclerView.setAdapter(mAdapter);
+                        }
+                    });
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+
             }
         });
     }
@@ -182,10 +164,6 @@ public class MainActivity extends AppCompatActivity {
 //    ParkingSpaces	int	可還空位數	17
 //    IsService	int	場站是否營運	1	1:是 0:否
 //    UpdateTime	String	更新時間	2016-03-16T10:13:48.677
-
-    private void dataList() {
-
-    }
 
     //todo 使用RecyclerView(取代list View) 最主要放資料進列表的的部分
     class MyAdapter extends RecyclerView.Adapter<MyAdapter.ViewHolder> {
@@ -217,7 +195,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(MyAdapter.ViewHolder holder, final int position) {
 
-//            bikeRentItems.get(position).getStop_id()
             holder.mStopIdTextView.setText(bikeRentItems.get(position).getStop_id());
             holder.mNameTextView.setText(bikeRentItems.get(position).getName());
 
@@ -247,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
             holder.mItemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    //todo(提醒) 用 callback的寫法
+                    //todo(提醒) 用 callback的寫法 回傳data
                     mFeedbackDialog.showDialog(new OnSignDialog3ResultListener() {
                         @Override
                         public void dialogPositiveResult(String note) {
@@ -272,6 +249,7 @@ public class MainActivity extends AppCompatActivity {
             return bikeRentItems.size();
         }
 
+        //todo(提示用) RecyclerView 元件宣告
         public class ViewHolder extends RecyclerView.ViewHolder {
 
             //測試新增 點擊 item
@@ -300,6 +278,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //講解時如果 api 不穩的話 換成這固定資料使用
     private String responseDataStr = "[{\"stop_id\":\"0328\",\"name\":\"一江公園\",\"E_name\":\"Yijiang Park\",\"lon\":121.53146362304688,\"lat\":25.053159713745117,\"Address\":\"一江街 / 松江路132巷口(西北側)(鄰近四平陽光商圈)\",\"E_Address\":\"Yijiang St. /  Ln. 132, Songjiang Rd. intersection\",\"city_id\":\"02\",\"area\":\"中山區\",\"E_area\":\"Zhongshan Dist.\",\"SumSpace\":36,\"Vehicles\":9,\"ParkingSpaces\":27,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"2006\",\"name\":\"銀河廣場\",\"E_name\":\"Galaxy Square\",\"lon\":121.2242431640625,\"lat\":24.961715698242188,\"Address\":\"九和一街48號對面銀河廣場人行道\",\"E_Address\":\"No.48, Jiuhe 1st St. (opposite)\",\"city_id\":\"04\",\"area\":\"中壢區\",\"E_area\":\"Zhongli Dist.\",\"SumSpace\":58,\"Vehicles\":23,\"ParkingSpaces\":33,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.773\"},{\"stop_id\":\"3214\",\"name\":\"臺中轉運站\",\"E_name\":\"Taichung Bus Station\",\"lon\":120.68755340576172,\"lat\":24.138870239257812,\"Address\":\"八德街/武德街口(停車場東南側)\",\"E_Address\":\"Bade St & Wude St Intersection(Southeast Side Parking Lot)\",\"city_id\":\"08\",\"area\":\"東區\",\"E_area\":\"East Dist.\",\"SumSpace\":52,\"Vehicles\":26,\"ParkingSpaces\":26,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.903\"},{\"stop_id\":\"0015\",\"name\":\"饒河夜市\",\"E_name\":\"Raohe Night Market\",\"lon\":121.57188415527344,\"lat\":25.049844741821289,\"Address\":\"八德路/松信路(西南側)\",\"E_Address\":\"The S.W. side of St.Wuchang & Road Longjiang.\",\"city_id\":\"02\",\"area\":\"松山區\",\"E_area\":\"Songshan Dist.\",\"SumSpace\":60,\"Vehicles\":44,\"ParkingSpaces\":16,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"0197\",\"name\":\"饒河夜市(八德路側)\",\"E_name\":\"Raohe Night Market\",\"lon\":121.57188415527344,\"lat\":25.049844741821289,\"Address\":\"八德路/松信路(西南側)\",\"E_Address\":\"The S.W. side of St.Wuchang & Road Longjiang.\",\"city_id\":\"02\",\"area\":\"松山區\",\"E_area\":\"Songshan Dist.\",\"SumSpace\":34,\"Vehicles\":14,\"ParkingSpaces\":20,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"0231\",\"name\":\"內政部營建署\",\"E_name\":\"Construction & Planning Agency\",\"lon\":121.54502105712891,\"lat\":25.047805786132812,\"Address\":\"八德路二段342號東側人行道(鄰近微風廣場/黑松世界)\",\"E_Address\":\"No.342, Sec. 2, Bade Rd. (east side)\",\"city_id\":\"02\",\"area\":\"松山區\",\"E_area\":\"Songshan Dist.\",\"SumSpace\":40,\"Vehicles\":3,\"ParkingSpaces\":37,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"0333\",\"name\":\"復盛公園\",\"E_name\":\"Fusheng Park\",\"lon\":121.56118011474609,\"lat\":25.047428131103516,\"Address\":\"八德路四段106巷6弄2號(東側)(鄰近京華城/中保寶貝城(BabyBoss City)/台北機廠)\",\"E_Address\":\"No.2, Aly. 6, Ln. 106, Sec. 4, Bade Rd.\",\"city_id\":\"02\",\"area\":\"松山區\",\"E_area\":\"Songshan Dist.\",\"SumSpace\":28,\"Vehicles\":10,\"ParkingSpaces\":18,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"0267\",\"name\":\"八德中坡路口\",\"E_name\":\"Bade & Zhongpo Intersection\",\"lon\":121.58019256591797,\"lat\":25.050619125366211,\"Address\":\"八德路四段869號前方人行道(鄰近饒河街夜市)\",\"E_Address\":\"No.869, Sec. 4, Bade Rd.\",\"city_id\":\"02\",\"area\":\"南港區\",\"E_area\":\"Nangang Dist.\",\"SumSpace\":38,\"Vehicles\":34,\"ParkingSpaces\":4,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"0033\",\"name\":\"中崙高中\",\"E_name\":\"Zhonglun High School\",\"lon\":121.56086730957031,\"lat\":25.04878044128418,\"Address\":\"八德路四段91巷(中崙高中)旁(鄰近京華城/中保寶貝城(BabyBoss City))\",\"E_Address\":\"The side of Ln. 91, Sec. 4, Bade Rd. ( beside Zhong-Lun High School)\",\"city_id\":\"02\",\"area\":\"松山區\",\"E_area\":\"Songshan Dist.\",\"SumSpace\":46,\"Vehicles\":25,\"ParkingSpaces\":21,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.143\"},{\"stop_id\":\"3041\",\"name\":\"力行國小\",\"E_name\":\"Li Sing Elementary School\",\"lon\":120.69393157958984,\"lat\":24.151573181152344,\"Address\":\"力行路/進化路口\",\"E_Address\":\"Lixing Rd & Jinhua Rd Intersection\",\"city_id\":\"08\",\"area\":\"東區\",\"E_area\":\"East Dist.\",\"SumSpace\":50,\"Vehicles\":6,\"ParkingSpaces\":44,\"IsService\":1,\"et_update\":\"2019-09-20T18:02:03.903\"}]";
 
 }
