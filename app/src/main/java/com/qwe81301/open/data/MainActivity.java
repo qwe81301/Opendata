@@ -59,19 +59,13 @@ public class MainActivity extends AppCompatActivity {
 
         //請求 Open Data
         requestOpenData();
-
     }
 
     private void setRecyclerView() {
-
         //設置LayoutManager
         mRecyclerView.setLayoutManager(new RecyclerViewNoBugLinearLayoutManager(getApplicationContext()));
-        //設置item的动画，可以不設置
-        mRecyclerView.setItemAnimator(new DefaultItemAnimator());
-//        if (getContext() != null) {
-        //設置item的分隔線
+
         mRecyclerView.addItemDecoration(new DividerItemDecoration(getApplicationContext(), LinearLayoutManager.VERTICAL));
-//        }
     }
 
     /**
@@ -81,24 +75,7 @@ public class MainActivity extends AppCompatActivity {
         service.submit(new Runnable() {//todo(提醒)  新增一個 執行緒跑有關網路的連線 OkHttp
             @Override
             public void run() {
-//                ActDataBean actData = new ActDataBean();
-//                actData.setMethod("sendToSign");//Method:"1" = 將要發送的資料寫入排程
-//
-//                TokenRequestDataBean tokenRequestData = new TokenRequestDataBean();
-//                tokenRequestData.setToken(ToolsHelper.readTokenData());
-//
-//                FCMToNotificationSignerRequestDataBean FCMToNotificationSignerRequestData = new FCMToNotificationSignerRequestDataBean();
-//                FCMToNotificationSignerRequestData.setSNo(tsNo);
-//                FCMToNotificationSignerRequestData.setSecret(tSecret);
-//                FCMToNotificationSignerRequestData.setData("");
 
-//                Gson gson = new Gson();
-//                String actDataTransferToApiJson = gson.toJson(actData);
-//                String tokenRequestDataTransferToApiJson = gson.toJson(tokenRequestData);
-//                String normalDataTransferToApiJson = gson.toJson(FCMToNotificationSignerRequestData);
-
-//                responseStr = mOkHttp.post("", "actRaw", "tokenRaw",
-//                        actDataTransferToApiJson, tokenRequestDataTransferToApiJson);
                 //todo 使用網址 https://www.databar.com.tw/ListApi/ApiLink#%E8%87%AA%E8%A1%8C%E8%BB%8A%E7%A7%9F%E5%80%9F%E8%B3%87%E6%96%99
                 responseStr = mOkHttp.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=20");
 
@@ -108,30 +85,22 @@ public class MainActivity extends AppCompatActivity {
                     //todo 如果資料不是每次都能順利拿到 到時候用放在 最下面 用固定的資料
                     Gson gson = new Gson();
 
+                    //字串轉成list
                     List<BikeRentDataBean> bikeRentDataBeanForList = gson.fromJson(responseStr, new TypeToken<List<BikeRentDataBean>>() {
                     }.getType());
 
-                    ArrayList<BikeRentDataBean> bikeRentDataList = new ArrayList<>();
-
                     mTotalShopCount = 0;
 
-                    for (int i = 0; i < bikeRentDataBeanForList.size(); i++) {
-                        BikeRentDataBean bikeRentDataBean = new BikeRentDataBean();
-                        bikeRentDataBean.setStop_id(bikeRentDataBeanForList.get(i).getStop_id());
-                        bikeRentDataBean.setName(bikeRentDataBeanForList.get(i).getName());
-
-                        bikeRentDataBean.setSumSpace(bikeRentDataBeanForList.get(i).getSumSpace());
-                        bikeRentDataBean.setVehicles(bikeRentDataBeanForList.get(i).getVehicles());
-                        bikeRentDataBean.setParkingSpaces(bikeRentDataBeanForList.get(i).getParkingSpaces());
-
-                        bikeRentDataList.add(bikeRentDataBean);
+                    for (int i = 0, q = bikeRentDataBeanForList.size(); i < q; i++) {
                         mTotalShopCount++;
                     }
 
                     mAdapter = new MyAdapter(
-                            bikeRentDataList
+                            bikeRentDataBeanForList
                     );
 
+                    //todo 修改畫面的動作 要再 UiThread 中執行
+                    //如果UI執行緒blocked的時間太長(大約超過5秒),使用者就會看到ANR(application not responding)的對話方塊。
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -143,7 +112,6 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
             }
         });
     }
