@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -42,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
 
     private int mTotalShopCount;// 計算總站數
 
+    private SwipeRefreshLayout mSwipeRefreshLayout;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,6 +62,16 @@ public class MainActivity extends AppCompatActivity {
 
         //請求 Open Data
         requestOpenData();
+
+        //todo 下滑刷新
+        mSwipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
+        mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {//設置監聽器
+            @Override
+            public void onRefresh() {//當使用者於頂端垂直滑動手勢時
+                //向下滑刷新
+                refreshWorkdayRecord();
+            }
+        });
     }
 
     private void setRecyclerView() {
@@ -66,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
         mRecyclerView.setLayoutManager(new RecyclerViewNoBugLinearLayoutManager(getApplicationContext()));
 
         mRecyclerView.addItemDecoration(new DividerItemDecoration(getApplicationContext(), LinearLayoutManager.VERTICAL));
+    }
+
+    private void refreshWorkdayRecord() {
+        //獲取出勤列表
+        requestOpenData();
+        mAdapter.notifyDataSetChanged();//更新RecyclerView
+        mSwipeRefreshLayout.setRefreshing(false);//移除SwipeRefreshLayout更新時的loading圖示
     }
 
     /**
@@ -77,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
 
                 //todo 使用網址 https://www.databar.com.tw/ListApi/ApiLink#%E8%87%AA%E8%A1%8C%E8%BB%8A%E7%A7%9F%E5%80%9F%E8%B3%87%E6%96%99
-                responseStr = mOkHttp.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=20");
+                responseStr = mOkHttp.get("https://www.easytraffic.com.tw/OpenService/Bike/BikeRentData?$top=50");
 
                 try {
                     Log.v("TEST", "responseStr:" + responseStr);
