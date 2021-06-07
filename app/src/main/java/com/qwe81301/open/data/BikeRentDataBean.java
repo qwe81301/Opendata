@@ -11,6 +11,8 @@ package com.qwe81301.open.data;
  */
 public class BikeRentDataBean {
 
+    //(目前測試)test 分支 單commit 合併(2-1)
+
     /**
      * stop_id : 0328
      * name : 一江公園
