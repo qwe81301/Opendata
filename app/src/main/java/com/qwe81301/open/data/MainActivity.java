@@ -77,6 +77,8 @@ public class MainActivity extends AppCompatActivity {
     private void setRecyclerView() {
         //設置LayoutManager
         mRecyclerView.setLayoutManager(new RecyclerViewNoBugLinearLayoutManager(getApplicationContext()));
+        //todo 提醒 這寫法可以讓 RecyclerView 變成橫向
+//        mRecyclerView.setLayoutManager(new RecyclerViewNoBugLinearLayoutManager(getApplicationContext(),LinearLayoutManager.HORIZONTAL,false));
 
         mRecyclerView.addItemDecoration(new DividerItemDecoration(getApplicationContext(), LinearLayoutManager.VERTICAL));
     }
@@ -184,6 +186,7 @@ public class MainActivity extends AppCompatActivity {
         public void onBindViewHolder(MyAdapter.ViewHolder holder, final int position) {
 
             holder.mStopIdTextView.setText(bikeRentItems.get(position).getStop_id());
+
             holder.mNameTextView.setText(bikeRentItems.get(position).getName());
 
             holder.mCanUseBikeNumberTextView.setText("可借：" + bikeRentItems.get(position).getVehicles());
