@@ -44,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
     private int mTotalShopCount;// 計算總站數
 
     private SwipeRefreshLayout mSwipeRefreshLayout;
+    //test 分支 單commit+多單commit 合併
+    //(目前測試)test 分支 單commit 合併
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
